@@ -203,6 +203,19 @@ def test_llm_agent_normalization_is_what_gets_sent(tmp_path):
     assert backend.calls[0][2] == out.sent_messages
 
 
+def test_non_string_reply_rejected_and_not_cached(tmp_path):
+    class ChunkBackend:
+        async def chat(self, provider, model_name, messages, temperature, max_tokens):
+            return [{"type": "thinking", "thinking": "..."}], "length"
+
+    # The fake breaks the Backend protocol on purpose: real SDK replies can do the same.
+    client = LLMClient(cache_dir=tmp_path / "cache", backend=ChunkBackend())  # pyright: ignore[reportArgumentType]
+    msgs = [{"role": "user", "content": "hi"}]
+    with pytest.raises(TypeError, match="list content"):
+        run(client.complete("mistral:m", msgs, 0.7, 100, replicate=0))
+    assert not list((tmp_path / "cache").rglob("*.json"))
+
+
 def test_unknown_provider_rejected():
     with pytest.raises(AssertionError):
         LLMAgent("x", Say, "nosuch:m", 0.5, LLMClient(cache_dir=None, backend=FakeBackend()))

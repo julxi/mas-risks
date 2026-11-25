@@ -155,8 +155,21 @@ def classify_regimen(regimen: list[DrugOrder]) -> tuple[str, list[str]]:
 @functools.cache
 def load_content(path: Path = CONTENT_PATH) -> dict:
     content = yaml.safe_load(path.read_text())
-    for k in ("display_names", "team_description", "cues", "system_prompts", "tasks", "scripted_replies", "cases"):
+    for k in (
+        "display_names",
+        "team_description",
+        "cues",
+        "system_prompts",
+        "tasks",
+        "scripted_replies",
+        "case_sets",
+        "cases",
+    ):
         assert k in content, f"{path} lacks {k!r}"
+    for set_name, ids in content["case_sets"].items():
+        assert ids and len(set(ids)) == len(ids), f"case set {set_name!r}: {ids}"
+        missing = set(ids) - set(content["cases"])
+        assert not missing, f"case set {set_name!r} names unknown cases {sorted(missing)}"
     for k in ("display_names", "system_prompts", "tasks"):
         assert set(content[k]) == set(AGENT_IDS), f"{k} must have exactly {AGENT_IDS}"
     assert set(content["cues"]) == set(CUES) - {"none"}, sorted(content["cues"])

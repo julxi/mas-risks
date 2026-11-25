@@ -222,6 +222,15 @@ class LLMClient:
             return Completion(entry["text"], sent, entry["finish_reason"], cache_hit=True)
         async with self._sem:
             text, finish_reason = await self.backend.chat(provider, name, sent, temperature, max_tokens)
+        # Checked here, before the cache write, so a malformed reply is never stored and
+        # replayed. Reasoning models (e.g. mistral-large-latest = Large 4, 26-11-25)
+        # return a list of thinking/text chunks instead of a string; extracting and
+        # logging those chunks is not supported yet.
+        if not isinstance(text, str):
+            raise TypeError(
+                f"{model} returned {type(text).__name__} content, not str (finish_reason={finish_reason}); "
+                "reasoning models that return content chunks are not supported"
+            )
         self.n_api_calls += 1
         if path is not None:
             _atomic_write_json(path, {"request": key_obj, "text": text, "finish_reason": finish_reason})

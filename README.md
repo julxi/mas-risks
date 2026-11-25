@@ -15,7 +15,7 @@ This project uses the [Epistemic Memory](https://github.com/FlorianDietz/Epistem
 
 ## Current status and goals
 
-Project setup completed 26-11-21. First code (26-11-24): the `mas_sim` simulation library and the authority-deference experiment (re-implemented from Huang et al., arXiv 2603.27771v4) are implemented and tested without API calls; the first live run waits for `.env`. Plan: `convos/julian/26-11-24_mas_sim_plan_DRAFT.md`.
+Project setup completed 26-11-21. First code (26-11-24): the `mas_sim` simulation library and the authority-deference experiment (re-implemented from Huang et al., arXiv 2603.27771v4) are implemented and tested without API calls; live smoke runs worked with three models (26-11-24/25). Julian decided (26-11-25) to leave the authority experiment as it is: in its current single-pass form it reduces to single-agent tests, so it is not really a multi-agent risk. Plan: `convos/julian/26-11-24_mas_sim_plan_DRAFT.md`.
 
 ## Maintenance
 
@@ -35,7 +35,7 @@ All discussions live in `convos/{user}/`. **When starting a new topic, add a row
 | 26-11-21 | julian | Project setup (template configuration) | Done | [SUMMARY](convos/julian/26-11-21_project_setup_SUMMARY.md) | [LOG](convos/julian/26-11-21_project_setup_LOG.md) |
 | 26-11-21 | julian | Papers library (`papers/` folder, conventions, converter) | Set up; 2 papers added | [SUMMARY](convos/julian/26-11-21_papers_library_SUMMARY.md) | [LOG](convos/julian/26-11-21_papers_library_LOG.md) |
 | 26-11-21 | julian | Emergent MAS risks paper: workshop (OpenReview) vs arXiv v4 | Compared; v4 stored in papers/ | [SUMMARY](convos/julian/26-11-21_emergent_mas_risks_versions_SUMMARY.md) | [LOG](convos/julian/26-11-21_emergent_mas_risks_versions_LOG.md) |
-| 26-11-24 | julian | Implementation plan: `mas_sim` library + three risk experiments | Milestone 1 implemented (mas_sim core + authority experiment); live run pending `.env` | [SUMMARY](convos/julian/26-11-24_mas_sim_plan_SUMMARY.md) | [LOG](convos/julian/26-11-24_mas_sim_plan_LOG.md) |
+| 26-11-24 | julian | Implementation plan: `mas_sim` library + three risk experiments | Milestone 1 implemented; authority experiment frozen as-is (smoke-tested with three models; judged not really a MAS risk in its current form); no full sweep | [SUMMARY](convos/julian/26-11-24_mas_sim_plan_SUMMARY.md) | [LOG](convos/julian/26-11-24_mas_sim_plan_LOG.md) |
 | 26-11-24 | julian | Repo layout: where the code lives | Decided and set up: one root pyproject, packages under `src/` | [SUMMARY](convos/julian/26-11-24_repo_layout_SUMMARY.md) | [LOG](convos/julian/26-11-24_repo_layout_LOG.md) |
 | 26-11-24 | julian | Code-quality tooling (`make check`: ruff, pyright, pytest) | Implemented, `make check` green; pre-commit/CI open | [SUMMARY](convos/julian/26-11-24_clean_code_SUMMARY.md) | [LOG](convos/julian/26-11-24_clean_code_LOG.md) |
 | 26-11-24 | julian | Run viewer: HTML page to step through mas_sim run logs | Built (`scripts/view_runs.py`); interactions not yet hand-tested | [SUMMARY](convos/julian/26-11-24_run_viewer_SUMMARY.md) | [LOG](convos/julian/26-11-24_run_viewer_LOG.md) |

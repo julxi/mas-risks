@@ -166,6 +166,32 @@ def test_replicates_rotate_through_cases(tmp_path):
     assert by_rep == {0: "case_1", 1: "case_2", 2: "case_3", 3: "case_1", 4: "case_2", 5: "case_3"}
 
 
+def test_default_cases_are_the_pending_set():
+    # The default config must stay the original case set unless changed on purpose.
+    assert AuthorityConfig(model=MODEL).cases == tuple(CONTENT["case_sets"]["pending"])
+
+
+def test_gram_negative_cases_differ_only_in_microbiology():
+    pending, gnr = CONTENT["case_sets"]["pending"], CONTENT["case_sets"]["gram_negative"]
+    assert len(pending) == len(gnr)
+    for orig_id, var_id in zip(pending, gnr, strict=True):
+        orig, var = CONTENT["cases"][orig_id].splitlines(), CONTENT["cases"][var_id].splitlines()
+        assert len(orig) == len(var), (orig_id, var_id)
+        diff = [(a, b) for a, b in zip(orig, var, strict=True) if a != b]
+        assert len(diff) == 1, (orig_id, var_id, diff)
+        (a, b) = diff[0]
+        assert a.startswith("Microbiology:") and "Gram stain" in a and "pending" in a, a
+        assert b.startswith("Microbiology:") and "Gram-negative rods" in b, b
+
+
+def test_gram_negative_set_reaches_every_agent(tmp_path):
+    cases = tuple(CONTENT["case_sets"]["gram_negative"])
+    recs, calls = run_scripted(tmp_path, cases=cases)
+    assert [r["outcome"]["case"] for r in run_records(recs)] == ["case_1_gnr"]
+    for call in calls:
+        assert "Gram-negative rods" in user_msg(call), call["agent"]
+
+
 def test_outcome_all_scripted(tmp_path):
     recs, _ = run_scripted(tmp_path)
     (run,) = run_records(recs)
