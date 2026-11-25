@@ -23,6 +23,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+from mas_sim.agents import Agent, Context, LLMAgent
 from mas_sim.logs import LogWriter, read_log, run_records
 from mas_sim.output import ParseError, parse_output
 from mas_sim.scenario import Scenario
@@ -48,6 +49,27 @@ class _RunFailed(Exception):
     pass
 
 
+def _assert_distinct_llm_requests(agents: Sequence[Agent], ctxs: Sequence[Context]) -> None:
+    """Fail if two LLM agents in one step would send the same request.
+
+    The LLM cache key is (model, normalization, messages, temperature, max_tokens,
+    replicate), not the agent id. Two agents with identical requests would therefore
+    share one cache entry: a resumed or repeated run would give both the same reply,
+    silently turning independent agents into copies. Scenarios must make such contexts
+    differ (e.g. by naming the agent in its system prompt).
+    """
+    seen: dict[str, str] = {}
+    for a, ctx in zip(agents, ctxs, strict=True):
+        if not isinstance(a, LLMAgent):
+            continue
+        key = json.dumps([a.model, a.normalization, a.temperature, a.max_tokens, ctx.messages], sort_keys=True)
+        assert key not in seen, (
+            f"agents {seen.get(key)!r} and {a.id!r} would send identical LLM requests in step {ctx.step} "
+            "and share cache entries; make their contexts differ"
+        )
+        seen[key] = a.id
+
+
 async def run_one(scenario: Scenario[Any], run_id: str, log: LogWriter) -> dict:
     """Run one scenario instance to completion. Returns the run record (also logged)."""
     tr = Transcript()
@@ -63,6 +85,7 @@ async def run_one(scenario: Scenario[Any], run_id: str, log: LogWriter) -> dict:
                     f"build_context returned a context for {(ctx.agent_id, ctx.round, ctx.step, ctx.run_id)}"
                 )
                 assert ctx.replicate == scenario.replicate, (ctx.replicate, scenario.replicate)
+            _assert_distinct_llm_requests(step.agents, ctxs)
             outs = await asyncio.gather(*(a.respond(ctx) for a, ctx in zip(step.agents, ctxs, strict=True)))
             new_msgs: list[Message] = []
             failure = None

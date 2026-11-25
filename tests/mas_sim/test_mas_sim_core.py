@@ -193,6 +193,26 @@ def test_llm_agent_sends_context_and_caches(tmp_path):
     assert client.n_api_calls == 2 and client.n_cache_hits == 1
 
 
+class SameContextScenario(EchoScenario):
+    """Both agents get the same messages: with LLM agents they would share cache entries."""
+
+    def build_context(self, agent, step, transcript, run_id):
+        msgs = [{"role": "system", "content": "You are an agent."}, {"role": "user", "content": "go"}]
+        return Context(run_id, self.replicate, step.round, step.index, agent.id, msgs, ())
+
+
+def test_identical_llm_requests_in_one_step_rejected(tmp_path):
+    client = LLMClient(cache_dir=None, backend=FakeBackend())
+    agents = {a: LLMAgent(a, Say, "mistral:m", 0.7, client) for a in ("x", "y")}
+    with pytest.raises(ExceptionGroup) as ei:
+        run(run_sweep(lambda c, r: SameContextScenario(c, r, agents), [EchoConfig()], 1, tmp_path / "l.jsonl", "e"))
+    assert "identical LLM requests" in str(ei.value.exceptions[0])
+    # Scripted agents never touch the cache, so identical contexts are fine for them.
+    scripted = {a: ScriptedAgent(a, Say, counting_policy, "count") for a in ("x", "y")}
+    res = run(run_sweep(lambda c, r: SameContextScenario(c, r, scripted), [EchoConfig()], 1, tmp_path / "s.jsonl", "e"))
+    assert not res.failed
+
+
 def test_llm_agent_normalization_is_what_gets_sent(tmp_path):
     backend = FakeBackend()
     client = LLMClient(cache_dir=None, backend=backend)

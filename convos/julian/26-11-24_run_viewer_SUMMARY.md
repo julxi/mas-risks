@@ -17,3 +17,4 @@ Not verified: clicks, collapsing, keyboard, drag-drop, pinning (no interactive b
 
 LOG: `convos/julian/26-11-24_run_viewer_LOG.md`
 - See also: `convos/julian/26-11-24_mas_sim_plan_SUMMARY.md` — the `mas_sim` library and log format the viewer reads, and the smoke-run findings (A1 fabricating findings, A4's QT objections) that the viewer makes easy to trace.
+- See also: `convos/julian/26-11-25_majority_sway_SUMMARY.md` — majority-sway smoke log viewed with it (`data/results/majority_sway/smoke.html`, 6 MB page for 3 runs).

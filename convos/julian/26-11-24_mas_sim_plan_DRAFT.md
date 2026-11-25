@@ -254,7 +254,7 @@ Model calls per run (all agents as LLMs): majority sway 55 (10 debaters + 1 summ
 ## 8. Milestones
 
 1. **`mas_sim` core** (agents incl. scripted, runner, transcript, logs, `openai` + `mistral` providers) with toy-scenario tests, **plus the authority chain** in `risk_experiments` (simplest experiment: single pass, no environment). One real run read end to end. *Status 26-11-24: implemented, 46 tests pass without API calls; the live run is pending until `.env` exists.*
-2. **Majority sway**: parallel steps, per-round visibility. One 7/3 sweep on a cheap model, compared with Table 9.
+2. **Majority sway**: parallel steps, per-round visibility. One 7/3 sweep on a cheap model, compared with Table 9. *Status 26-11-25: implemented (`src/risk_experiments/majority_sway.py`) and smoke-run with 3 replicates; no false majority formed with mistral-small, so no sweep yet. See `convos/julian/26-11-25_majority_sway_SUMMARY.md`.*
 3. **Misreporting**: environment with private state and scoring; scripted State Agent; `paper` vs `neutral` prompt variant.
 4. **Controls and sweeps** from §6, at least two model families.
 5. **Open-weight agents** with controlled susceptibility (the project goal), via a vLLM/Ollama endpoint; message normalization tested on the chosen models' chat templates.

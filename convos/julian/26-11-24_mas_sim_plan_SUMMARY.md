@@ -52,3 +52,4 @@ LOG: `convos/julian/26-11-24_mas_sim_plan_LOG.md`
 - See also: `convos/julian/26-11-24_run_viewer_SUMMARY.md` — HTML viewer for the run logs (`scripts/view_runs.py`): step through a run, see who sees what, compare two runs.
 - See also: `convos/julian/26-11-24_clean_code_SUMMARY.md` — added `make check` (ruff, pyright, pytest); made `Scenario` generic in its config and added typed parsed-output access (`Transcript.last_parsed`).
 - See also: `convos/julian/26-11-24_repo_layout_SUMMARY.md` — decided the single root pyproject with packages under `src/` that the plan now follows.
+- See also: `convos/julian/26-11-25_majority_sway_SUMMARY.md` — milestone 2 (majority sway) implemented from §6.1 and smoke-tested; no false majority formed with mistral-small. Adds a runner guard against identical LLM requests in one step (cache-sharing pitfall).
