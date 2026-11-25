@@ -1,0 +1,615 @@
+<!doctype html>
+<!--
+  Run viewer for mas_sim JSONL logs. Self-contained: no network, no server.
+  viewer.py replaces the data placeholder below with the log's records (see logs.py for
+  the record format). Opened without data, the page accepts a dropped .jsonl file.
+  The page reads only the generic record fields (call/env/run); it knows nothing about a
+  particular experiment. Context messages are split into collapsible sections on lines
+  of the form "=== TITLE ===" and into blocks on "--- NAME ---"; blocks are matched to
+  the call's `visible` list by order, and only when their counts agree.
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>mas_sim run viewer</title>
+<style>
+:root {
+  --bg: #f7f7f5; --panel: #ffffff; --ink: #1d1d1b; --muted: #6b6b66; --line: #e2e1dc;
+  --accent: #2f5fd0; --accent-soft: #e6edfb; --in: #2f5fd0; --in-soft: #e6edfb;
+  --out: #0f7b5f; --out-soft: #e0f3ec; --bad: #b3261e; --bad-soft: #fbe9e7;
+  --diff: #fff1c2; --mark: #ffd84d; --chip: #efeee9;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #161615; --panel: #1f1f1d; --ink: #e8e7e2; --muted: #9a9993; --line: #34332f;
+    --accent: #7ea2f7; --accent-soft: #24304d; --in: #7ea2f7; --in-soft: #24304d;
+    --out: #5cc9a7; --out-soft: #173a30; --bad: #f2867d; --bad-soft: #43201d;
+    --diff: #4a3f14; --mark: #8a6d00; --chip: #2b2a27;
+  }
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; }
+body { font: 14px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif; background: var(--bg); color: var(--ink);
+  display: grid; grid-template-rows: auto 1fr; }
+code, .mono, pre { font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; font-size: 12.5px; }
+button, select, input { font: inherit; color: inherit; }
+button { background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 3px 9px; cursor: pointer; }
+button:hover { border-color: var(--accent); }
+input[type=text], select { background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 3px 7px; }
+header.top { display: flex; gap: 14px; align-items: center; padding: 8px 14px; border-bottom: 1px solid var(--line); background: var(--panel); }
+header.top h1 { font-size: 15px; margin: 0; font-weight: 600; }
+header.top .src { color: var(--muted); }
+header.top .keys { margin-left: auto; color: var(--muted); font-size: 12px; }
+kbd { border: 1px solid var(--line); border-bottom-width: 2px; border-radius: 4px; padding: 0 4px; font-size: 11px; }
+.layout { display: grid; grid-template-columns: 300px 1fr; min-height: 0; }
+aside { border-right: 1px solid var(--line); overflow: auto; background: var(--panel); }
+aside .filter { position: sticky; top: 0; background: var(--panel); padding: 8px; border-bottom: 1px solid var(--line); }
+aside .filter input { width: 100%; }
+.group-head { padding: 8px 10px 4px; font-size: 12px; color: var(--muted); border-top: 1px solid var(--line); }
+.group-head b { color: var(--ink); font-weight: 600; }
+.run-item { padding: 5px 10px 6px 16px; cursor: pointer; border-left: 3px solid transparent; }
+.run-item:hover { background: var(--bg); }
+.run-item.sel { background: var(--accent-soft); border-left-color: var(--accent); }
+.run-item.cmp { border-left-color: var(--out); background: var(--out-soft); }
+.run-item .rid { font-family: ui-monospace, monospace; font-size: 12px; }
+.run-item .pins { font-size: 12px; color: var(--muted); }
+.run-item .pins span { margin-right: 8px; }
+main { overflow: auto; padding: 14px 18px 60px; min-width: 0; }
+.empty { color: var(--muted); padding: 40px; text-align: center; }
+.err { background: var(--bad-soft); color: var(--bad); border: 1px solid var(--bad); border-radius: 6px; padding: 8px 12px; margin: 8px 0; white-space: pre-wrap; }
+.chip { display: inline-block; background: var(--chip); border-radius: 10px; padding: 0 8px; margin: 0 4px 2px 0; font-size: 12px; }
+.chip.vary { background: var(--accent-soft); color: var(--accent); }
+.badge { display: inline-block; border-radius: 4px; padding: 0 5px; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .03em; }
+.badge.llm { background: var(--accent-soft); color: var(--accent); }
+.badge.scripted, .badge.replay { background: var(--chip); color: var(--muted); }
+.badge.bad { background: var(--bad-soft); color: var(--bad); }
+.muted { color: var(--muted); }
+/* Booleans: distinct but not good/bad colored; the viewer can't know which value is the risky one. */
+.true { color: var(--accent); font-weight: 600; }
+.false { color: var(--muted); font-weight: 600; }
+.runhead h2 { font-size: 16px; margin: 0 0 4px; font-family: ui-monospace, monospace; }
+.outcome { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 2px 18px; margin: 8px 0; font-size: 13px; }
+.outcome div { display: flex; gap: 6px; }
+.outcome .k { color: var(--muted); cursor: pointer; }
+.outcome .k:hover { color: var(--accent); }
+.outcome .k.pinned::before { content: "★ "; color: var(--accent); }
+details > summary { cursor: pointer; list-style: none; }
+details > summary::-webkit-details-marker { display: none; }
+details > summary::before { content: "▸"; display: inline-block; width: 1em; color: var(--muted); transition: transform .1s; }
+details[open] > summary::before { transform: rotate(90deg); }
+.flow { display: flex; align-items: stretch; gap: 0; overflow-x: auto; padding: 6px 0 10px; }
+.flow-label { font-size: 12px; color: var(--muted); margin-top: 6px; }
+.node { min-width: 150px; max-width: 220px; flex: 1 1 0; border: 1.5px solid var(--line); border-radius: 8px; padding: 6px 8px; background: var(--panel); cursor: pointer; position: relative; }
+.node:hover { border-color: var(--accent); }
+.node .nh { display: flex; gap: 6px; align-items: center; font-weight: 600; font-size: 13px; }
+.node .nb { font-size: 12px; color: var(--muted); margin-top: 3px; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; }
+.node .hits { position: absolute; top: -7px; right: -6px; background: var(--mark); color: var(--ink); border-radius: 9px; font-size: 11px; padding: 0 5px; font-weight: 600; }
+.node.sel { border-color: var(--ink); border-width: 2.5px; }
+.node.input { background: var(--in-soft); border-color: var(--in); }
+.node.reader { background: var(--out-soft); border-color: var(--out); }
+.node.dim { opacity: .45; }
+.arrow { align-self: center; color: var(--muted); padding: 0 4px; }
+.legend { font-size: 12px; color: var(--muted); display: flex; gap: 14px; flex-wrap: wrap; }
+.legend i { display: inline-block; width: 11px; height: 11px; border-radius: 3px; vertical-align: -1px; margin-right: 4px; border: 1.5px solid; }
+.toolbar { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; padding: 8px 0; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); margin: 8px 0 12px; position: sticky; top: -14px; background: var(--bg); z-index: 2; }
+.toolbar .sep { width: 1px; align-self: stretch; background: var(--line); }
+table.matrix { border-collapse: collapse; font-size: 12px; margin: 6px 0 4px; }
+table.matrix th, table.matrix td { border: 1px solid var(--line); padding: 2px 8px; text-align: center; }
+table.matrix th.row { text-align: left; cursor: pointer; }
+table.matrix td.on { background: var(--in-soft); color: var(--in); font-weight: 700; }
+table.matrix td.na { background: var(--chip); }
+table.matrix tr.sel th.row { color: var(--accent); }
+.cols { display: grid; gap: 14px; }
+.cols.two { grid-template-columns: 1fr 1fr; }
+.card { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; margin-bottom: 10px; }
+.card > summary, .card > .ch { padding: 7px 10px; font-weight: 600; }
+.card .cb { padding: 0 12px 10px; }
+.stephead { display: flex; gap: 8px; align-items: baseline; flex-wrap: wrap; margin-bottom: 6px; }
+.stephead h3 { margin: 0; font-size: 15px; }
+.meta { font-size: 12px; color: var(--muted); }
+.refs { font-size: 12.5px; margin: 2px 0 8px; }
+.ref { cursor: pointer; border-bottom: 1px dotted; }
+.ref.in { color: var(--in); } .ref.out { color: var(--out); }
+.sec { border-top: 1px solid var(--line); }
+.sec > summary { padding: 5px 0; font-size: 12px; font-weight: 600; color: var(--muted); letter-spacing: .04em; }
+.blk { margin: 4px 0 8px 10px; border-left: 3px solid var(--in); padding-left: 8px; }
+.blk > summary { font-size: 13px; font-weight: 600; padding: 2px 0; }
+.blk .src { font-weight: 400; color: var(--in); font-size: 12px; }
+.text .ln { white-space: pre-wrap; word-break: break-word; min-height: 1.45em; }
+.text .ln.diff { background: var(--diff); }
+.text.raw { font-family: ui-monospace, monospace; font-size: 12.5px; }
+mark { background: var(--mark); color: inherit; border-radius: 2px; }
+dl.kv { display: grid; grid-template-columns: max-content 1fr; gap: 4px 12px; margin: 4px 0; }
+dl.kv dt { color: var(--muted); font-size: 12.5px; }
+dl.kv dd { margin: 0; white-space: pre-wrap; word-break: break-word; }
+dl.kv ul { margin: 0; padding-left: 18px; }
+table.objs { border-collapse: collapse; font-size: 12.5px; }
+table.objs th, table.objs td { border: 1px solid var(--line); padding: 2px 7px; text-align: left; vertical-align: top; }
+table.objs th { color: var(--muted); font-weight: 500; }
+.tabs { display: inline-flex; gap: 0; margin-left: 8px; font-weight: 400; }
+.tabs button { border-radius: 0; font-size: 12px; padding: 1px 8px; }
+.tabs button:first-child { border-radius: 6px 0 0 6px; } .tabs button:last-child { border-radius: 0 6px 6px 0; }
+.tabs button.on { background: var(--accent-soft); color: var(--accent); border-color: var(--accent); }
+.env { font-size: 12.5px; color: var(--muted); margin: 6px 0; }
+.drop { position: fixed; inset: 0; background: rgba(47,95,208,.15); border: 3px dashed var(--accent); display: none; align-items: center; justify-content: center; font-size: 20px; z-index: 10; }
+body.dragging .drop { display: flex; }
+</style>
+</head>
+<body>
+<header class="top">
+  <h1>mas_sim run viewer</h1>
+  <span class="src" id="src"></span>
+  <span class="keys"><kbd>←</kbd><kbd>→</kbd> step · <kbd>↑</kbd><kbd>↓</kbd> run · drop a .jsonl file to open it</span>
+</header>
+<div class="layout">
+  <aside>
+    <div class="filter"><input type="text" id="filter" placeholder="Filter runs (id, config, outcome)…"></div>
+    <div id="runlist"></div>
+  </aside>
+  <main id="main"><div class="empty">No log loaded. Drop a mas_sim .jsonl log file onto this page.</div></main>
+</div>
+<div class="drop">Drop a .jsonl log to open it</div>
+<script id="data" type="application/json">/*__MAS_SIM_DATA__*/</script>
+<script>
+"use strict";
+// ---------- helpers ----------
+const $ = (s, el = document) => el.querySelector(s);
+const esc = s => String(s).replace(/[&<>"']/g, c => ({"&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"}[c]));
+const isObj = x => x !== null && typeof x === "object" && !Array.isArray(x);
+const refKey = (round, step, agent) => `${round}|${step}|${agent}`;
+const callKey = c => refKey(c.round, c.step, c.agent);
+const reEsc = s => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+const LS = "mas_sim_viewer:";
+
+function showError(msg) {
+  const box = document.createElement("div");
+  box.className = "err";
+  box.textContent = msg;
+  $("#main").prepend(box);
+}
+window.addEventListener("error", e => showError("JavaScript error: " + e.message));
+// The drop handler is async; its failures (e.g. a malformed line) arrive here, not as "error".
+window.addEventListener("unhandledrejection", e => showError("Error: " + (e.reason && e.reason.message || e.reason)));
+
+// ---------- state ----------
+const S = {
+  source: "", runs: [], byId: new Map(), groups: [], varying: [],
+  run: null, step: 0, cmp: null, hl: "", diff: true, filter: "",
+  replyTab: localStorage.getItem(LS + "replyTab") || "parsed",
+  open: JSON.parse(localStorage.getItem(LS + "open") || "{}"),
+  pins: null, defaultPins: [],
+};
+const DEFAULT_CLOSED = new Set(["msg:system", "shown", "config"]);
+function isOpen(key) { return key in S.open ? S.open[key] : !DEFAULT_CLOSED.has(key); }
+function savePins() { localStorage.setItem(LS + "pins:" + S.source, JSON.stringify(S.pins)); }
+
+// ---------- loading ----------
+function load(source, records, defaultPins) {
+  S.source = source;
+  S.defaultPins = defaultPins || [];
+  const stored = localStorage.getItem(LS + "pins:" + source);
+  S.pins = stored ? JSON.parse(stored) : S.defaultPins.slice();
+  const byId = new Map();
+  const get = id => { if (!byId.has(id)) byId.set(id, {id, rec: null, calls: [], envs: []}); return byId.get(id); };
+  for (const r of records) {
+    if (!isObj(r) || !("type" in r) || !("run_id" in r)) throw new Error("record without type/run_id: " + JSON.stringify(r).slice(0, 200));
+    const run = get(r.run_id);
+    if (r.type === "call") run.calls.push(r);
+    else if (r.type === "env") run.envs.push(r);
+    else if (r.type === "run") {
+      if (run.rec) throw new Error("two run records for " + r.run_id);
+      run.rec = r;
+    } else throw new Error("unknown record type " + JSON.stringify(r.type));
+  }
+  for (const run of byId.values()) {
+    const keys = new Set();
+    for (const c of run.calls) {
+      const k = callKey(c);
+      if (keys.has(k)) throw new Error(`run ${run.id}: two calls with round|step|agent = ${k}`);
+      keys.add(k);
+    }
+    run.callByKey = new Map(run.calls.map(c => [callKey(c), c]));
+  }
+  // Config fields whose value differs between runs: these name the conditions.
+  const recs = [...byId.values()].filter(r => r.rec && isObj(r.rec.config));
+  const allKeys = new Set(recs.flatMap(r => Object.keys(r.rec.config)));
+  S.varying = [...allKeys].filter(k => new Set(recs.map(r => JSON.stringify(r.rec.config[k]))).size > 1);
+  const groups = new Map();
+  for (const run of byId.values()) {
+    run.condLabel = run.rec && isObj(run.rec.config)
+      ? (S.varying.length ? S.varying.map(k => `${k}=${fmt(run.rec.config[k])}`).join(" · ") : "(single condition)")
+      : "(no run record: run did not finish)";
+    if (!groups.has(run.condLabel)) groups.set(run.condLabel, []);
+    groups.get(run.condLabel).push(run);
+  }
+  S.groups = [...groups.entries()].sort((a, b) => a[0].localeCompare(b[0]))
+    .map(([label, runs]) => ({label, runs: runs.sort((a, b) => (rep(a) - rep(b)) || a.id.localeCompare(b.id))}));
+  S.runs = S.groups.flatMap(g => g.runs);
+  S.byId = byId;
+  $("#src").textContent = `${source} — ${S.runs.length} runs, ${records.filter(r => r.type === "call").length} calls`;
+  readHash();
+  if (!S.run || !S.byId.has(S.run)) S.run = S.runs.length ? S.runs[0].id : null;
+  if (S.cmp && !S.byId.has(S.cmp)) S.cmp = null;
+  render();
+}
+const rep = run => (run.rec && typeof run.rec.replicate === "number") ? run.rec.replicate : 1e9;
+const fmt = v => typeof v === "string" ? v : JSON.stringify(v);
+
+// ---------- hash state ----------
+function readHash() {
+  const p = new URLSearchParams(location.hash.slice(1));
+  if (p.get("run")) S.run = p.get("run");
+  if (p.get("step")) S.step = parseInt(p.get("step"), 10) || 0;
+  S.cmp = p.get("cmp") || null;
+  if (p.get("hl")) S.hl = p.get("hl");
+}
+function writeHash() {
+  const p = new URLSearchParams();
+  if (S.run) p.set("run", S.run);
+  p.set("step", S.step);
+  if (S.cmp) p.set("cmp", S.cmp);
+  if (S.hl) p.set("hl", S.hl);
+  history.replaceState(null, "", "#" + p.toString());
+}
+
+// ---------- text rendering ----------
+function hl(escaped) {
+  if (!S.hl) return escaped;
+  return escaped.replace(new RegExp(reEsc(esc(S.hl)), "gi"), m => `<mark>${m}</mark>`);
+}
+function countHits(text) {
+  if (!S.hl || !text) return 0;
+  return (text.match(new RegExp(reEsc(S.hl), "gi")) || []).length;
+}
+function renderLines(lines, otherSet, raw) {
+  const body = lines.map(l => {
+    const d = otherSet && l.trim() && !otherSet.has(l) ? " diff" : "";
+    return `<div class="ln${d}">${hl(esc(l))}</div>`;
+  }).join("");
+  return `<div class="text${raw ? " raw" : ""}">${body}</div>`;
+}
+function trimLines(lines) {
+  let a = 0, b = lines.length;
+  while (a < b && !lines[a].trim()) a++;
+  while (b > a && !lines[b - 1].trim()) b--;
+  return lines.slice(a, b);
+}
+
+// Split a context message into "=== TITLE ===" sections and "--- NAME ---" blocks.
+function parseSections(text) {
+  const sections = [];
+  let cur = {title: null, lines: []};
+  for (const ln of text.split("\n")) {
+    const m = ln.match(/^=== (.+) ===$/);
+    if (m) {
+      if (cur.title !== null || cur.lines.some(l => l.trim())) sections.push(cur);
+      cur = {title: m[1], lines: []};
+    } else cur.lines.push(ln);
+  }
+  sections.push(cur);
+  for (const s of sections) {
+    s.pre = []; s.blocks = [];
+    let b = null;
+    for (const ln of s.lines) {
+      const m = ln.match(/^--- (.+) ---$/);
+      if (m) { b = {title: m[1], lines: [], ref: null}; s.blocks.push(b); }
+      else if (b) b.lines.push(ln);
+      else s.pre.push(ln);
+    }
+    s.pre = trimLines(s.pre);
+    for (const bl of s.blocks) bl.lines = trimLines(bl.lines);
+  }
+  return sections;
+}
+
+// Parse every message of a call; attach visible refs to blocks when the counts agree.
+function parseContext(call) {
+  const msgs = call.messages.map(m => ({role: m.role, content: m.content, sections: parseSections(m.content)}));
+  const blocks = msgs.filter(m => m.role !== "system").flatMap(m => m.sections.flatMap(s => s.blocks));
+  const vis = call.visible || [];
+  let mapNote = null;
+  if (blocks.length === vis.length) blocks.forEach((b, i) => { b.ref = vis[i]; });
+  else if (blocks.length || vis.length)
+    mapNote = `${blocks.length} "--- NAME ---" block(s) in the context but ${vis.length} visible message(s): blocks not matched to senders.`;
+  return {msgs, mapNote};
+}
+
+// How the output of `ref` appears inside the first later context that shows it.
+function shownTo(run, call) {
+  const key = callKey(call);
+  for (const r of run.calls) {
+    if (!(r.visible || []).some(v => refKey(...v) === key)) continue;
+    const ctx = parseContext(r);
+    for (const m of ctx.msgs) for (const s of m.sections) for (const b of s.blocks)
+      if (b.ref && refKey(...b.ref) === key) return {reader: r, block: b};
+    return {reader: r, block: null};
+  }
+  return null;
+}
+
+// One-line gist of a parsed reply for the flow strip. Heuristic and schema-agnostic:
+// lists of objects -> their first field joined (plus ✓/✗ if the object has exactly one
+// boolean), *_from fields -> "← value", numbers/booleans -> key=value. Long strings skipped.
+function brief(parsed) {
+  if (!isObj(parsed)) return "";
+  const parts = [];
+  for (const [k, v] of Object.entries(parsed)) {
+    if (Array.isArray(v) && v.length && v.every(isObj)) {
+      parts.push(v.map(o => {
+        const vals = Object.values(o);
+        let s = isObj(vals[0]) || Array.isArray(vals[0]) ? "…" : String(vals[0]);
+        const bools = vals.filter(x => typeof x === "boolean");
+        if (bools.length === 1) s += bools[0] ? " ✓" : " ✗";
+        return s;
+      }).join(" + "));
+    } else if (typeof v === "string" && k.endsWith("_from")) parts.push("← " + v);
+    else if (typeof v === "boolean" || typeof v === "number") parts.push(`${k}=${v}`);
+  }
+  return parts.join(" · ");
+}
+
+function renderValue(v) {
+  if (v === null) return '<span class="muted">null</span>';
+  if (Array.isArray(v)) {
+    if (!v.length) return '<span class="muted">[ ] empty</span>';
+    if (v.every(isObj)) {
+      const cols = [...new Set(v.flatMap(o => Object.keys(o)))];
+      return `<table class="objs"><tr>${cols.map(c => `<th>${esc(c)}</th>`).join("")}</tr>` +
+        v.map(o => `<tr>${cols.map(c => `<td>${c in o ? renderValue(o[c]) : ""}</td>`).join("")}</tr>`).join("") + "</table>";
+    }
+    return "<ul>" + v.map(x => `<li>${renderValue(x)}</li>`).join("") + "</ul>";
+  }
+  if (isObj(v)) return '<dl class="kv">' + Object.entries(v).map(([k, x]) => `<dt>${esc(k)}</dt><dd>${renderValue(x)}</dd>`).join("") + "</dl>";
+  if (typeof v === "boolean") return `<span class="${v}">${v}</span>`;
+  if (typeof v === "number") return `<span class="mono">${v}</span>`;
+  return hl(esc(v));
+}
+
+function det(key, cls, summary, body) {
+  return `<details class="${cls}" data-key="${esc(key)}"${isOpen(key) ? " open" : ""}><summary>${summary}</summary>${body}</details>`;
+}
+
+// ---------- sidebar ----------
+function renderSidebar() {
+  const f = S.filter.toLowerCase();
+  const html = S.groups.map(g => {
+    const runs = g.runs.filter(r => !f || (r.id + " " + g.label + " " + JSON.stringify(r.rec ? r.rec.outcome : "")).toLowerCase().includes(f));
+    if (!runs.length) return "";
+    return `<div class="group-head"><b>${esc(g.label)}</b> · ${runs.length} run${runs.length > 1 ? "s" : ""}</div>` + runs.map(r => {
+      const out = r.rec && isObj(r.rec.outcome) ? r.rec.outcome : {};
+      const pins = S.pins.filter(k => k in out).map(k => `<span>${esc(k)}: <span class="${typeof out[k] === "boolean" ? out[k] : ""}">${esc(fmt(out[k]))}</span></span>`).join("");
+      const st = !r.rec ? '<span class="badge bad">incomplete</span>' : r.rec.status !== "ok" ? `<span class="badge bad">${esc(r.rec.status)}</span>` : "";
+      const cls = r.id === S.run ? " sel" : r.id === S.cmp ? " cmp" : "";
+      return `<div class="run-item${cls}" data-run="${esc(r.id)}"><span class="rid">${esc(r.id)}</span> ${st}<div class="pins">${pins}</div></div>`;
+    }).join("");
+  }).join("");
+  $("#runlist").innerHTML = html || '<div class="empty">No runs match.</div>';
+}
+
+// ---------- main ----------
+function render() {
+  renderSidebar();
+  const main = $("#main");
+  const run = S.byId.get(S.run);
+  if (!run) { main.innerHTML = '<div class="empty">No runs in this log.</div>'; return; }
+  const cmp = S.cmp ? S.byId.get(S.cmp) : null;
+  const n = Math.max(run.calls.length, cmp ? cmp.calls.length : 0);
+  S.step = Math.max(0, Math.min(S.step, n - 1));
+  writeHash();
+  const scroll = main.scrollTop;
+  main.innerHTML = renderRunHead(run, cmp) + renderFlow(run, cmp ? "A: " + run.id : null) + (cmp ? renderFlow(cmp, "B: " + cmp.id) : "") +
+    legend() + renderToolbar(run, n) + renderMatrix(run) +
+    `<div class="cols${cmp ? " two" : ""}">${renderStep(run, cmp, "A")}${cmp ? renderStep(cmp, run, "B") : ""}</div>`;
+  main.scrollTop = scroll;
+  const hlInput = $("#hl");
+  if (S._focusHl) { hlInput.focus(); hlInput.setSelectionRange(hlInput.value.length, hlInput.value.length); S._focusHl = false; }
+}
+
+function renderRunHead(run, cmp) {
+  const rec = run.rec;
+  let h = `<div class="runhead"><h2>${esc(run.id)}${cmp ? ` <span class="muted">vs</span> ${esc(cmp.id)}` : ""}</h2>`;
+  if (!rec) return h + '<div class="err">No "run" record for this run_id: the run did not finish (crash or still running).</div></div>';
+  const cfg = isObj(rec.config) ? rec.config : {};
+  h += `<div>${S.varying.map(k => `<span class="chip vary">${esc(k)}=${esc(fmt(cfg[k]))}</span>`).join("")}` +
+    `<span class="chip">replicate ${esc(fmt(rec.replicate))}</span><span class="chip">status ${esc(rec.status)}</span>` +
+    run.envs.map(e => `<span class="chip">env@step ${e.step}: ${esc(JSON.stringify(e.data))}</span>`).join("") + "</div>";
+  if (rec.error) h += `<div class="err">${esc(rec.error)}</div>`;
+  if (isObj(rec.outcome)) {
+    const co = cmp && cmp.rec && isObj(cmp.rec.outcome) ? cmp.rec.outcome : null;
+    h += '<div class="outcome">' + Object.entries(rec.outcome).map(([k, v]) => {
+      const val = x => `<span class="${typeof x === "boolean" ? x : ""}">${esc(fmt(x))}</span>`;
+      const other = co && k in co && JSON.stringify(co[k]) !== JSON.stringify(v) ? ` <span class="muted">vs</span> ${val(co[k])}` : "";
+      return `<div><span class="k${S.pins.includes(k) ? " pinned" : ""}" data-pin="${esc(k)}" title="click to show in run list">${esc(k)}</span>${val(v)}${other}</div>`;
+    }).join("") + "</div>";
+  }
+  h += det("config", "", '<span class="muted">full config</span>', `<pre>${esc(JSON.stringify(cfg, null, 2))}</pre>`);
+  return h + "</div>";
+}
+
+function renderFlow(run, label) {
+  const sel = run.calls[S.step];
+  const inputs = new Set(sel ? (sel.visible || []).map(v => refKey(...v)) : []);
+  const selKey = sel ? callKey(sel) : null;
+  const nodes = run.calls.map((c, i) => {
+    const readsSel = selKey && (c.visible || []).some(v => refKey(...v) === selKey);
+    const cls = i === S.step ? "sel" : inputs.has(callKey(c)) ? "input" : readsSel ? "reader" : "dim";
+    const hits = countHits(c.raw);
+    const b = c.parse_error ? `<span class="badge bad">parse error</span>` : esc(brief(c.parsed));
+    return `<div class="node ${cls}" data-step="${i}" title="${esc(brief(c.parsed))}">` +
+      (hits ? `<span class="hits" title="'${esc(S.hl)}' in this reply">${hits}</span>` : "") +
+      `<div class="nh"><span class="muted">${i}</span>${esc(c.agent)}<span class="badge ${esc(c.agent_kind)}">${esc(c.agent_kind)}</span></div><div class="nb">${b}</div></div>`;
+  }).join('<span class="arrow">→</span>');
+  return (label ? `<div class="flow-label">${esc(label)}</div>` : "") + `<div class="flow">${nodes}</div>`;
+}
+
+function legend() {
+  return `<div class="legend"><span><i style="border-color:var(--ink)"></i>selected step</span>` +
+    `<span><i style="background:var(--in-soft);border-color:var(--in)"></i>its context shows these outputs</span>` +
+    `<span><i style="background:var(--out-soft);border-color:var(--out)"></i>these later agents see its output</span>` +
+    `<span><i style="border-color:var(--line);opacity:.5"></i>not connected</span>` +
+    (S.hl ? `<span><b class="node-hit" style="background:var(--mark);border-radius:9px;padding:0 5px">n</b> times “${esc(S.hl)}” in the reply</span>` : "") + "</div>";
+}
+
+function renderToolbar(run, n) {
+  const opts = S.runs.filter(r => r.id !== run.id).map(r => `<option value="${esc(r.id)}"${r.id === S.cmp ? " selected" : ""}>${esc(r.id)} — ${esc(r.condLabel)}</option>`).join("");
+  return `<div class="toolbar">
+    <button data-act="prev">◀</button><span>step <b>${S.step}</b> / ${n - 1}</span><button data-act="next">▶</button>
+    <span class="sep"></span>
+    <button data-act="expand">expand all</button><button data-act="collapse">collapse all</button>
+    <span class="sep"></span>
+    <label>highlight <input type="text" id="hl" value="${esc(S.hl)}" placeholder="e.g. QT" size="14"></label>
+    <span class="sep"></span>
+    <label>compare with <select id="cmp"><option value="">— none —</option>${opts}</select></label>
+    ${S.cmp ? `<button data-act="swap" title="swap A and B">⇄</button><label><input type="checkbox" id="diff"${S.diff ? " checked" : ""}> mark lines not in the other run</label>` : ""}
+  </div>`;
+}
+
+function renderMatrix(run) {
+  const calls = run.calls;
+  const head = "<tr><th>reader ↓ / output →</th>" + calls.map((c, i) => `<th>${i} ${esc(c.agent)}</th>`).join("") + "</tr>";
+  const rows = calls.map((r, i) => {
+    const vis = new Set((r.visible || []).map(v => refKey(...v)));
+    return `<tr class="${i === S.step ? "sel" : ""}"><th class="row" data-step="${i}">${i} ${esc(r.agent)}</th>` + calls.map(c =>
+      c.step >= r.step ? '<td class="na"></td>' : vis.has(callKey(c)) ? '<td class="on">●</td>' : "<td></td>").join("") + "</tr>";
+  }).join("");
+  return det("matrix", "card", "Who sees whose output", `<div class="cb"><table class="matrix">${head}${rows}</table>` +
+    '<div class="meta">● = the reader\'s context contains that output (from the call\'s logged <code>visible</code> list). Grey = same or later step. ' +
+    "Text injected by the scenario itself (e.g. a cue sentence) is not an agent output and does not appear here; compare two runs to see it.</div></div>");
+}
+
+function refLabel(run, ref) {
+  const i = run.calls.findIndex(c => callKey(c) === refKey(...ref));
+  return {i, label: `${ref[2]} (step ${ref[1]}${ref[0] ? ", round " + ref[0] : ""})`};
+}
+
+function renderStep(run, other, side) {
+  const c = run.calls[S.step];
+  if (!c) return `<div class="empty">${esc(run.id)} has no step ${S.step}.</div>`;
+  const oc = other && S.diff ? other.calls[S.step] : null;
+  const who = c.agent_kind === "llm" ? c.model : c.policy;
+  let h = `<div><div class="stephead"><h3>${S.cmp ? side + " · " : ""}step ${S.step} · ${esc(c.agent)}</h3><span class="badge ${esc(c.agent_kind)}">${esc(c.agent_kind)}</span>` +
+    `<span class="meta">${esc(who)} · round ${c.round} · temp ${esc(fmt(c.temperature))} · max_tokens ${esc(fmt(c.max_tokens))} · normalization ${esc(c.normalization)} · ` +
+    `cache_hit ${esc(fmt(c.cache_hit))} · finish ${esc(fmt(c.finish_reason))}</span></div>`;
+  const ins = (c.visible || []).map(v => { const {i, label} = refLabel(run, v); return `<span class="ref in" data-step="${i}">${esc(label)}</span>`; });
+  const readers = run.calls.map((r, i) => [r, i]).filter(([r]) => (r.visible || []).some(v => refKey(...v) === callKey(c)))
+    .map(([r, i]) => `<span class="ref out" data-step="${i}">${esc(r.agent)} (step ${r.step})</span>`);
+  h += `<div class="refs">sees: ${ins.length ? ins.join(", ") : '<span class="muted">no earlier outputs</span>'}<br>seen by: ${readers.length ? readers.join(", ") : '<span class="muted">nobody</span>'}</div>`;
+
+  // Context
+  const ctx = parseContext(c);
+  const octx = oc ? oc.messages : null;
+  let body = ctx.mapNote ? `<div class="meta">${esc(ctx.mapNote)}</div>` : "";
+  ctx.msgs.forEach((m, mi) => {
+    const om = octx && octx[mi] && octx[mi].role === m.role ? new Set(octx[mi].content.split("\n")) : null;
+    const secs = m.sections.map(s => {
+      let inner = s.pre.length ? renderLines(s.pre, om) : "";
+      inner += s.blocks.map(b => {
+        const key = "blk:" + (b.ref ? b.ref[2] : b.title);
+        let src = "";
+        if (b.ref) { const {i, label} = refLabel(run, b.ref); src = ` <span class="src ref in" data-step="${i}">= output of ${esc(label)}</span>`; }
+        return det(key, "blk", esc(b.title) + src, renderLines(b.lines, om));
+      }).join("");
+      if (s.title === null) return inner;
+      return det("sec:" + s.title, "sec", esc(s.title), inner);
+    }).join("");
+    body += det("msg:" + m.role, "card", `${esc(m.role)} <span class="meta">${m.content.length} chars${countHits(m.content) ? ` · ${countHits(m.content)} hits` : ""}</span>`, `<div class="cb">${secs}</div>`);
+  });
+  h += det("context", "card", `Context <span class="meta">(exactly as sent${c.agent_kind === "llm" ? "" : "; for non-LLM agents: what they were given"}, ${c.messages.length} messages)</span>`, `<div class="cb">${body}</div>`);
+
+  // Reply
+  const tabs = `<span class="tabs"><button data-tab="parsed" class="${S.replyTab === "parsed" ? "on" : ""}">parsed</button><button data-tab="raw" class="${S.replyTab === "raw" ? "on" : ""}">raw</button></span>`;
+  let reply = c.parse_error ? `<div class="err">Parse error: ${esc(c.parse_error)}</div>` : "";
+  if (S.replyTab === "parsed" && c.parsed) reply += renderValue(c.parsed);
+  else reply += renderLines(c.raw.split("\n"), null, true);
+  h += det("reply", "card", `Reply ${tabs}`, `<div class="cb">${reply}</div>`);
+
+  // As seen downstream
+  const sh = shownTo(run, c);
+  if (sh) {
+    const ri = run.calls.indexOf(sh.reader);
+    const inner = sh.block ? renderLines(sh.block.lines) : '<div class="meta">Could not locate the block in that context (block count did not match the visible list).</div>';
+    h += det("shown", "card", `As later agents see it <span class="meta">(in the context of <span class="ref out" data-step="${ri}">${esc(sh.reader.agent)}</span>)</span>`, `<div class="cb">${inner}</div>`);
+  }
+  const envs = run.envs.filter(e => e.round === c.round && e.step === c.step);
+  h += envs.map(e => `<div class="env">env update after this step: <code>${esc(JSON.stringify(e.data))}</code></div>`).join("");
+  return h + "</div>";
+}
+
+// ---------- events ----------
+document.addEventListener("click", e => {
+  const t = e.target;
+  const runEl = t.closest(".run-item");
+  if (runEl) { S.run = runEl.dataset.run; if (S.cmp === S.run) S.cmp = null; render(); return; }
+  const stepEl = t.closest("[data-step]");
+  if (stepEl && !t.closest("summary") && stepEl.dataset.step !== "-1") { S.step = +stepEl.dataset.step; render(); return; }
+  if (stepEl && t.closest("summary") && t.classList.contains("ref")) { e.preventDefault(); S.step = +stepEl.dataset.step; render(); return; }
+  const tab = t.closest("[data-tab]");
+  if (tab) { e.preventDefault(); S.replyTab = tab.dataset.tab; localStorage.setItem(LS + "replyTab", S.replyTab); render(); return; }
+  const pin = t.closest("[data-pin]");
+  if (pin) { const k = pin.dataset.pin; S.pins = S.pins.includes(k) ? S.pins.filter(x => x !== k) : [...S.pins, k]; savePins(); render(); return; }
+  const act = t.closest("[data-act]");
+  if (!act) return;
+  const a = act.dataset.act;
+  if (a === "prev") S.step--;
+  else if (a === "next") S.step++;
+  else if (a === "swap") [S.run, S.cmp] = [S.cmp, S.run];
+  else if (a === "expand" || a === "collapse") {
+    document.querySelectorAll("#main details[data-key]").forEach(d => { S.open[d.dataset.key] = a === "expand"; });
+    localStorage.setItem(LS + "open", JSON.stringify(S.open));
+  }
+  render();
+});
+document.addEventListener("toggle", e => {
+  const d = e.target;
+  if (!(d instanceof HTMLDetailsElement) || !d.dataset.key) return;
+  if (isOpen(d.dataset.key) === d.open) return;
+  S.open[d.dataset.key] = d.open;
+  localStorage.setItem(LS + "open", JSON.stringify(S.open));
+  // Keep the other column (compare mode) in sync without a full re-render.
+  document.querySelectorAll(`#main details[data-key="${CSS.escape(d.dataset.key)}"]`).forEach(x => { if (x.open !== d.open) x.open = d.open; });
+}, true);
+document.addEventListener("input", e => {
+  if (e.target.id === "hl") { S.hl = e.target.value; S._focusHl = true; render(); }
+  else if (e.target.id === "filter") { S.filter = e.target.value; renderSidebar(); }
+});
+document.addEventListener("change", e => {
+  if (e.target.id === "cmp") { S.cmp = e.target.value || null; render(); }
+  else if (e.target.id === "diff") { S.diff = e.target.checked; render(); }
+});
+document.addEventListener("keydown", e => {
+  if (e.target.closest("input, select, textarea") || e.metaKey || e.ctrlKey || e.altKey) return;
+  const i = S.runs.findIndex(r => r.id === S.run);
+  if (e.key === "ArrowLeft") S.step--;
+  else if (e.key === "ArrowRight") S.step++;
+  else if (e.key === "ArrowUp" && i > 0) S.run = S.runs[i - 1].id;
+  else if (e.key === "ArrowDown" && i < S.runs.length - 1) S.run = S.runs[i + 1].id;
+  else return;
+  e.preventDefault();
+  if (S.cmp === S.run) S.cmp = null;
+  render();
+});
+document.addEventListener("dragover", e => { e.preventDefault(); document.body.classList.add("dragging"); });
+document.addEventListener("dragleave", e => { if (!e.relatedTarget) document.body.classList.remove("dragging"); });
+document.addEventListener("drop", async e => {
+  e.preventDefault();
+  document.body.classList.remove("dragging");
+  const file = e.dataTransfer.files[0];
+  if (!file) return;
+  const text = await file.text();
+  const records = text.split("\n").filter(l => l.trim()).map((l, i) => {
+    try { return JSON.parse(l); } catch (err) { throw new Error(`${file.name} line ${i + 1}: ${err.message}`); }
+  });
+  S.run = null; S.cmp = null; S.step = 0; history.replaceState(null, "", "#");
+  load(file.name, records, []);
+});
+
+// ---------- boot ----------
+const raw = $("#data").textContent.trim();
+if (raw && !raw.startsWith("/*")) {
+  const d = JSON.parse(raw);
+  load(d.source, d.records, d.pins);
+}
+</script>
+</body>
+</html>

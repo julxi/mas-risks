@@ -35,3 +35,4 @@ LOG: `convos/julian/26-11-24_mas_sim_plan_LOG.md`
 - See also: `convos/julian/26-11-21_emergent_mas_risks_versions_SUMMARY.md` — the paper comparison; it found the majority-sway data contradicting its interpretation, which the plan's §6.1 relies on.
 - See also: `convos/julian/26-11-24_clean_code_SUMMARY.md` — added `make check` (ruff, pyright, pytest); made `Scenario` generic in its config and added typed parsed-output access (`Transcript.last_parsed`).
 - See also: `convos/julian/26-11-24_repo_layout_SUMMARY.md` — decided the single root pyproject with packages under `src/` that the plan now follows.
+- See also: `convos/julian/26-11-24_run_viewer_SUMMARY.md` — HTML viewer for the run logs (`scripts/view_runs.py`): step through a run, see who sees what, compare two runs.
