@@ -15,7 +15,7 @@ This project uses the [Epistemic Memory](https://github.com/FlorianDietz/Epistem
 
 ## Current status and goals
 
-Project setup completed 26-11-21. First code (26-11-24): the `mas_sim` simulation library and the authority-deference experiment (re-implemented from Huang et al., arXiv 2603.27771v4) are implemented and tested without API calls; live smoke runs worked with three models (26-11-24/25). Julian decided (26-11-25) to leave the authority experiment as it is: in its current single-pass form it reduces to single-agent tests, so it is not really a multi-agent risk. The majority-sway experiment is implemented and smoke-tested (26-11-25), but with mistral-small no false majority formed, so it needs a different claim before it measures anything. Plan: `convos/julian/26-11-24_mas_sim_plan_DRAFT.md`.
+Project setup completed 26-11-21. First code (26-11-24): the `mas_sim` simulation library and the authority-deference experiment (re-implemented from Huang et al., arXiv 2603.27771v4) are implemented and tested without API calls; live smoke runs worked with three models (26-11-24/25). Julian decided (26-11-25) to leave the authority experiment as it is: in its current single-pass form it reduces to single-agent tests, so it is not really a multi-agent risk. The majority-sway experiment is implemented and smoke-tested (26-11-25), but with mistral-small no false majority formed, so it needs a different claim before it measures anything. The plan DRAFT was deleted at Julian's request on 26-11-26 (last version in git commit a99f591); its history is in `convos/julian/26-11-24_mas_sim_plan_SUMMARY.md`.
 
 ## Maintenance
 

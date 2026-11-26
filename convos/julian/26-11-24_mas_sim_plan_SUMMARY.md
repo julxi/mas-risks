@@ -1,14 +1,14 @@
 # SUMMARY: Implementation plan for `mas_sim` and the risk experiments
 
-**Last updated:** 26-11-25 (authority experiment frozen as-is by Julian: not really a MAS risk in its current form; open items parked)
+**Last updated:** 26-11-26 (plan DRAFT deleted at Julian's request)
 
-The plan: `convos/julian/26-11-24_mas_sim_plan_DRAFT.md` (edited in place; this SUMMARY and the LOG record how it changed). It re-implements three experiments from Huang et al. (arXiv 2603.27771v4): majority sway (Risk 2.1), authority deference (Risk 2.2), strategic misreporting (Risk 1.4). The goal is an extensible base, not a faithful reproduction. The plan (its first draft was written in an earlier session without a LOG) explains why not to build on the authors' RiskLab code: two of three experiments are missing or broken there [concluded by that session from static code reading].
+The plan was `convos/julian/26-11-24_mas_sim_plan_DRAFT.md`, edited in place; Julian had it deleted on 26-11-26, so it now exists only in git history (last version in commit a99f591: `git show a99f591:convos/julian/26-11-24_mas_sim_plan_DRAFT.md`). It re-implements three experiments from Huang et al. (arXiv 2603.27771v4): majority sway (Risk 2.1), authority deference (Risk 2.2), strategic misreporting (Risk 1.4). The goal is an extensible base, not a faithful reproduction. The plan (its first draft was written in an earlier session without a LOG) explains why not to build on the authors' RiskLab code: two of three experiments are missing or broken there [concluded by that session from static code reading].
 
 Main design choices, at Julian's request:
 - **Two packages** [concluded]: `src/mas_sim/` is a general simulation library with no experiment content and never imports `src/risk_experiments/`, which holds the experiments. Both live in the repo's single root `pyproject.toml` (repo layout [decided] in the topic linked below); the second draft had used two pyprojects under `projects/`, dropped when the repo layout changed. A test enforces the import boundary.
 - **Scripted agents in experiments** [concluded]: `LLMAgent`, `ScriptedAgent` and `ReplayAgent` share one interface and are logged and parsed the same way. Uses: fixed Plan B text for A3 (authority), fixed fast agents (majority sway), scripted State Agent and truthful/lying A1 baselines (misreporting).
 - **Mistral** [verified: docs only, no live call]: the hosted API works with the `openai` SDK and `base_url=https://api.mistral.ai/v1`. Locally served Mistral models may reject non-alternating roles or system messages, so `llm.py` gets a per-model message-normalization step whose output is what gets logged.
-- The `projects/` folder and both earlier plan files are deleted; the DRAFT is the only copy.
+- The `projects/` folder and both earlier plan files are deleted; the DRAFT was the only copy, and it was deleted too (26-11-26, see above).
 
 Decided by Julian [decided, transcribed in the LOG]: names stay `mas_sim` / `risk_experiments`; plain Python, no Inspect AI (doesn't fit multi-agent runs); default model is a Mistral model, selectable per run and role; replicates default to 30 per condition (95% CI about ±18 pp on a rate near 50%), adjustable; State Agent in misreporting is scripted; we don't contact the authors. Which Mistral model, and whether Julian meant 30 or 50 replicates, are my working assumptions [assumed].
 

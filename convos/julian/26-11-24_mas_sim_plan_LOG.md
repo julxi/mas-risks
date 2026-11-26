@@ -412,3 +412,9 @@ C: (transcribed from chat) include everything for now and then do short commits 
 [decided, Julian 26-11-25, transcribed above] `data/results/` is committed, including the viewer HTML pages ("for now"). My suggestion to revisit the policy before committing large sweeps (majority sway could reach tens of MB per sweep) stands as a proposal, not a decision. The unused `mistralai` dependency is committed as Julian left it.
 
 OUTDATED: the statements above in *Commit check* and *results committed* that `pyproject.toml`/`uv.lock` add an unused `mistralai` dependency, and that it is committed: before the commit, the dependency was removed again (both files match the previous commit), so it is not part of it.
+
+---
+
+26-11-26, Claude Opus 5.5 — *plan DRAFT deleted*; I have read the DRAFT, this LOG's tail and the SUMMARY header
+
+Julian asked in chat to delete `convos/julian/26-11-24_mas_sim_plan_DRAFT.md`; I deleted it (no reason given). Its last version is in git commit a99f591. References to it remain in append-only LOGs (this one, `convos/julian/26-11-25_majority_sway_LOG.md`) and in `convos/julian/26-11-24_repo_layout_SUMMARY.md` and `convos/julian/26-11-25_majority_sway_SUMMARY.md`; those now point to a file that only exists in git history. README and this topic's SUMMARY were updated to say so.
