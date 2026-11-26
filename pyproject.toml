@@ -1,14 +1,44 @@
+# One shared environment for all code in this repository, so that both
+# researchers run the model organisms and the simulations on identical library
+# versions (one pyproject at the repo root, packages under src/; see
+# docs/CODING.md, section "Project Structure").
+#
+# This file lists direct dependencies only, with lower bounds only where a
+# feature we rely on needs them. Exact versions live in uv.lock, which is what
+# makes a run reproducible. requirements.txt is generated from uv.lock for
+# people who use plain pip; never edit it by hand. How to install and how to
+# change dependencies: README.md, section "Environment".
+
 [project]
 name = "mas-risks"
 version = "0.1.0"
 description = "Small open-weight agents with controlled susceptibility to influence, run in multi-agent risk scenarios."
 readme = "README.md"
+license = "MIT"
 requires-python = ">=3.14"
 dependencies = [
-    "openai>=3.58.0",
-    "pydantic>=2.14.4",
-    "python-dotenv>=1.2.4",
-    "pyyaml>=6.0.4",
+    # Models, steering and LoRA training
+    "torch",
+    "transformers>=4.51",  # first release that loads Qwen3 checkpoints
+    "accelerate",
+    "peft",
+    "bitsandbytes; sys_platform == 'linux'",  # 4-bit loading for QLoRA; needs an NVIDIA GPU
+    "safetensors",
+    "huggingface-hub",
+    "datasets",
+    # Analysis of the logged runs
+    "numpy",
+    "pandas",
+    "scipy",
+    "statsmodels",
+    "matplotlib",
+    # Simulations (mas_sim, risk_experiments)
+    "openai>=3.58.0",  # client for OpenAI, Mistral and local vLLM/Ollama endpoints
+    "pyyaml>=6.0.4",  # scenario files
+    # Plumbing
+    "pydantic>=2.14.4",  # validates the agents' JSON outputs
+    "python-dotenv>=1.2.4",  # reads keys such as HF_TOKEN from .env
+    "tqdm",
 ]
 
 [build-system]

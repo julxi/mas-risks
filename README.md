@@ -8,14 +8,54 @@ This project uses the [Epistemic Memory](https://github.com/FlorianDietz/Epistem
 
 ## Team
 
-- Julian Bitterlich — `convos/julian/` (git user.name: `Julian Bitterlich`)
-- Ankush — `convos/ankush/` (git user.name: not yet recorded; add it here on Ankush's first session)
+- Julian Bitterlich — `convos/julian/` (git user.name: `Julian Bitterlich`). Researcher B of the research plan (simulations S1–S3 and instrumental hooks); assumed by elimination, not yet confirmed by Julian.
+- Ankush — `convos/ankush/` (git user.name: `Ankush7890`). Researcher A of the research plan (model organisms and their evals).
 
 **Identifying the current user:** match `git config user.name` against this list. If it doesn't match anyone or the match is ambiguous, ask before proceeding.
 
 ## Current status and goals
 
-Project setup completed 26-11-21. First code (26-11-24): the `mas_sim` simulation library and the authority-deference experiment (re-implemented from Huang et al., arXiv 2603.27771v4) are implemented and tested without API calls; the first live run waits for `.env`. Plan: `convos/julian/26-11-24_mas_sim_plan_DRAFT.md`.
+The research plan is [docs/research_agenda.md](docs/research_agenda.md): four research questions, three simulations, two researchers, about 8 part-time weeks.
+
+As of 26-11-25: the shared Python environment installs with `uv sync` on Python 3.14 and `make check` passes on it (one Linux machine with an NVIDIA GPU; no model loaded yet). Researcher A's work on the susceptibility eval, steering vectors and LoRAs is at the design-proposal stage, with no code written (see the model-organisms topic in the index below).
+
+First code (26-11-24, Julian): the `mas_sim` simulation library and the authority-deference experiment (re-implemented from Huang et al., arXiv 2603.27771v4) are implemented and tested without API calls; the first live run waits for `.env`. Plan: `convos/julian/26-11-24_mas_sim_plan_DRAFT.md`.
+
+**Open for Julian:** three points need his agreement before code is written: the shared environment, a shared code package, and content reserved for his simulations. They are in [convos/ankush/26-11-24_note_for_julian.md](convos/ankush/26-11-24_note_for_julian.md).
+
+## Environment
+
+One Python environment at the repository root serves all code, so both researchers run the same library versions. `pyproject.toml` lists the direct dependencies, `uv.lock` pins every package, and `requirements.txt` is exported from the lock. Python 3.14 or newer (the simulation code relies on 3.14 behaviour; uv downloads it if missing); a Linux machine with an NVIDIA GPU for anything that loads a model.
+
+With [uv](https://docs.astral.sh/uv/) (preferred, installs exactly what the lock says):
+
+```bash
+uv sync                      # creates .venv with runtime and dev packages
+source .venv/bin/activate
+```
+
+With plain pip:
+
+```bash
+python3.14 -m venv .venv && source .venv/bin/activate
+pip install -r requirements.txt -r requirements-dev.txt
+```
+
+Check that the GPU is visible:
+
+```bash
+python -c "import torch; print(torch.__version__, torch.cuda.is_available(), torch.cuda.get_device_name(0))"
+```
+
+To add or upgrade a dependency, edit `pyproject.toml`, then regenerate the other files and commit all of them together:
+
+```bash
+uv lock                      # add --upgrade to move everything to the newest versions
+uv export --frozen --no-hashes --no-dev   --format requirements-txt -o requirements.txt
+uv export --frozen --no-hashes --only-dev --format requirements-txt -o requirements-dev.txt
+```
+
+Keys such as a Hugging Face token go in a `.env` file at the repository root, which git ignores.
 
 ## Maintenance
 
@@ -38,3 +78,5 @@ All discussions live in `convos/{user}/`. **When starting a new topic, add a row
 | 26-11-24 | julian | Implementation plan: `mas_sim` library + three risk experiments | Milestone 1 implemented (mas_sim core + authority experiment); live run pending `.env` | [SUMMARY](convos/julian/26-11-24_mas_sim_plan_SUMMARY.md) | [LOG](convos/julian/26-11-24_mas_sim_plan_LOG.md) |
 | 26-11-24 | julian | Repo layout: where the code lives | Decided and set up: one root pyproject, packages under `src/` | [SUMMARY](convos/julian/26-11-24_repo_layout_SUMMARY.md) | [LOG](convos/julian/26-11-24_repo_layout_LOG.md) |
 | 26-11-24 | julian | Code-quality tooling (`make check`: ruff, pyright, pytest) | Implemented, `make check` green; pre-commit/CI open | [SUMMARY](convos/julian/26-11-24_clean_code_SUMMARY.md) | [LOG](convos/julian/26-11-24_clean_code_LOG.md) |
+| 26-11-24 | ankush | Local setup on Ankush's machine (clone, tool checks, git user.name) | Done | [SUMMARY](convos/ankush/26-11-24_local_setup_SUMMARY.md) | [LOG](convos/ankush/26-11-24_local_setup_LOG.md) |
+| 26-11-24 | ankush | Model organisms: susceptibility eval, steering vectors, naive and discerning LoRAs; also the research plan and the shared environment | Plan and environment added; eval and data design settled on Ankush's side; waiting for Julian's answers; no code yet | [SUMMARY](convos/ankush/26-11-24_model_organisms_SUMMARY.md) | [LOG](convos/ankush/26-11-24_model_organisms_LOG.md) |
