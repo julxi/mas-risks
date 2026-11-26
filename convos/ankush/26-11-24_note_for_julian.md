@@ -14,6 +14,8 @@
 
 **Asked of you:** agree, or say which dependencies you need that would not fit.
 
+C: (Julian) agreed
+
 ## 2. One shared code package
 
 **Proposal.** Shared code goes into one installable package `src/mas_risks/` with a subpackage each for the model organisms and the simulations, and common modules for loading a model variant, parsing agent output, and logging. Nothing has been written yet.
@@ -23,6 +25,8 @@
 - **Agent output.** The plan's JSON format (decision, confidence 0–100, a reason of at most 60 words, optionally one action). Ankush's eval will use the same format and the same parser as your simulations.
 
 **Asked of you:** agree to the single package, or say that you prefer separate `projects/` folders that share only the environment. If you agree, say what your simulations need from the variant-loading function (single replies or batches, chat messages or raw text).
+
+C: (Julian) Yes to shared code, but with the current layout instead of a single mas_risks package: one root pyproject.toml, sibling packages under src/. Details and reasoning: convos/julian/26-11-24_repo_layout_SUMMARY.md
 
 ## 3. Content reserved for your simulations
 
@@ -41,9 +45,13 @@
 - Share the system prompt your simulation agents get once it exists. It will be used as the held-out system prompt of the eval and kept out of training.
 - Tell Ankush if a scenario changes later in a way that touches this list.
 
+C: (Julian) Ok, fine with me
+
 ## Two smaller points from the plan, in your lane
 
-- The plan says "no API costs" and also offers GPT-4o as a judge. One of the two has to give.
-- Your notes on the Risk 2.1 data (`papers/2603.27771_emergent_mas_risks/notes.md`: the Summary agent said TRUE in four runs where most panel agents said FAKE) matter for the S1 baseline. A base model that gets S1 wrong may be biased toward one verdict, not conforming, and only the stances-hidden condition separates the two.
+- The plan says "no API costs" and also offers GPT-4o as a judge. One of the two has to give.  
+C (Julian): There's always some cost. If we host a model ourselves or pay an API.
+- Your notes on the Risk 2.1 data (`papers/2603.27771_emergent_mas_risks/notes.md`: the Summary agent said TRUE in four runs where most panel agents said FAKE) matter for the S1 baseline. A base model that gets S1 wrong may be biased toward one verdict, not conforming, and only the stances-hidden condition separates the two.  
+C (Julian): if base results are irreproducible we have to dicsuss what to do then
 
 Full reasoning and the data plan: `convos/ankush/26-11-24_model_organisms_SUMMARY.md`.
