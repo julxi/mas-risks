@@ -11,3 +11,5 @@ Configured the Epistemic Memory template for this project.
 - Demo content (`convos/jamie/`, `CORE.md`, template note in CLAUDE.md, example entries in FUTURE_WORK.md and FEEDBACK.md) removed.
 
 LOG: `convos/julian/26-11-21_project_setup_LOG.md`
+
+- See also: `convos/ankush/26-11-24_local_setup_SUMMARY.md` — records Ankush's git user.name, which this setup left open.

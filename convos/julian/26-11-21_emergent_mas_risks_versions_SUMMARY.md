@@ -28,3 +28,4 @@ LOG: `convos/julian/26-11-21_emergent_mas_risks_versions_LOG.md`
 - See also: `convos/julian/26-11-21_papers_library_SUMMARY.md`. The papers library is where these would go if the user later wants them stored.
 - See also: `convos/julian/26-11-24_mas_sim_plan_SUMMARY.md` — implementation plan that re-implements three of this paper's experiments; its §6 notes build on the problems found here.
 - See also: `convos/julian/26-11-25_majority_sway_SUMMARY.md` — our re-implementation of the majority-sway news experiment; with mistral-small the analysts rejected the claim from prior knowledge, so no false majority formed.
+- See also: `convos/ankush/26-11-24_model_organisms_SUMMARY.md` — the research plan reuses Risks 2.1 and 2.2 from this paper; problem 2 above bears on how its majority-sway baseline is read.
